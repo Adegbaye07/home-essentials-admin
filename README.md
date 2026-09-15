@@ -29,12 +29,12 @@ Admin: [http://localhost:3001](http://localhost:3001)
 
 ## Routes
 
-| Path | Purpose |
-|------|---------|
-| `/login` | Admin JWT login |
-| `/products` | Catalogue list |
-| `/products/new` · `/products/[id]/edit` | Create / edit (variants, sizes or cleaning pricing) |
-| `/orders` · `/orders/[id]` | List / detail; status chain; delete abandoned |
+| Path                                    | Purpose                                                                                |
+| --------------------------------------- | -------------------------------------------------------------------------------------- |
+| `/login`                                | Admin JWT login                                                                        |
+| `/products`                             | Catalogue list                                                                         |
+| `/products/new` · `/products/[id]/edit` | Create / edit (variants, sizes or cleaning pricing, optional authenticity video ≤5MB) |
+| `/orders` · `/orders/[id]`              | List / detail; status chain; delete abandoned                                          |
 
 ## Brand
 

@@ -1,10 +1,12 @@
 "use client";
 
+import { useRef } from "react";
 import { Image, Table, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 
 import { isCleaningCategory } from "@/lib/constants";
 import { formatKobo } from "@/lib/format";
+import { productPrimaryMedia } from "@/lib/product-display";
 import type { Product, SizePricing } from "@/lib/types";
 
 const sizePricingColumns: ColumnsType<SizePricing> = [
@@ -32,6 +34,7 @@ const sizePricingColumns: ColumnsType<SizePricing> = [
 
 export function ProductCatalogueExpandedRow({ product }: { product: Product }) {
   const cleaning = isCleaningCategory(product.category);
+  const videoUrl = product.videoUrl?.trim();
 
   return (
     <div className="grid gap-6 py-2 lg:grid-cols-2">
@@ -69,6 +72,20 @@ export function ProductCatalogueExpandedRow({ product }: { product: Product }) {
         </p>
       </section>
       <section>
+        {videoUrl ? (
+          <div className="mb-4">
+            <h3 className="mb-2 text-sm font-semibold text-neutral-800">Authenticity video</h3>
+            <video
+              src={videoUrl}
+              className="max-h-48 w-full max-w-xs rounded-md border border-neutral-200 bg-black object-contain"
+              muted
+              playsInline
+              autoPlay
+              loop
+              controls
+            />
+          </div>
+        ) : null}
         <h3 className="mb-2 text-sm font-semibold text-neutral-800">Variants & images</h3>
         {product.variantImages?.length ? (
           <ul className="space-y-3">
@@ -101,14 +118,44 @@ export function ProductCatalogueExpandedRow({ product }: { product: Product }) {
   );
 }
 
+function CatalogueVideoThumb({ src, title }: { src: string; title: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+
+  return (
+    <video
+      ref={ref}
+      src={src}
+      title={title}
+      className="h-12 w-12 rounded object-cover"
+      muted
+      playsInline
+      preload="metadata"
+      onMouseEnter={() => {
+        const el = ref.current;
+        if (!el) return;
+        void el.play().catch(() => {});
+      }}
+      onMouseLeave={() => {
+        const el = ref.current;
+        if (!el) return;
+        el.pause();
+        el.currentTime = 0;
+      }}
+    />
+  );
+}
+
 export function ProductCatalogueThumb({ product }: { product: Product }) {
-  const url = product.variantImages?.[0]?.imageUrl;
-  if (!url) {
+  const media = productPrimaryMedia(product);
+  if (!media) {
     return <span className="text-xs text-neutral-400">—</span>;
+  }
+  if (media.kind === "video") {
+    return <CatalogueVideoThumb src={media.url} title={product.title} />;
   }
   return (
     <Image
-      src={url}
+      src={media.url}
       alt={product.title}
       width={48}
       height={48}

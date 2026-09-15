@@ -157,6 +157,23 @@ export async function uploadProductImage(file: File): Promise<string> {
   return data.url;
 }
 
+export async function uploadProductVideo(file: File): Promise<string> {
+  const form = new FormData();
+  form.append("file", file);
+
+  const res = await apiFetch("/api/v1/admin/uploads/video", {
+    method: "POST",
+    body: form,
+  });
+
+  if (!res.ok) {
+    throw new ApiError(await parseError(res, "/api/v1/admin/uploads/video"), res.status);
+  }
+
+  const data = (await res.json()) as { url: string };
+  return data.url;
+}
+
 export async function listOrders(params?: {
   status?: string;
   page?: number;

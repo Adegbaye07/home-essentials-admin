@@ -7,7 +7,12 @@ import { useRouter } from "next/navigation";
 
 import { useAppMessage } from "@/hooks/use-app-message";
 import { categorySelectOptions, isCleaningCategory } from "@/lib/constants";
-import { createProduct, updateProduct, uploadProductImage } from "@/lib/api";
+import {
+  createProduct,
+  updateProduct,
+  uploadProductImage,
+  uploadProductVideo,
+} from "@/lib/api";
 import type { Product, SizePricing } from "@/lib/types";
 
 type ImageSlot = {
@@ -15,6 +20,8 @@ type ImageSlot = {
   file?: File;
   isLocal?: boolean;
 };
+
+type VideoSlot = ImageSlot;
 
 type SizePricingForm = {
   size: string;
@@ -30,6 +37,7 @@ type ProductFormValues = {
   variants: string[];
   active: boolean;
   variantImagesByVariant: Record<string, ImageSlot>;
+  authenticityVideo?: VideoSlot | null;
   sizeLabels: string[];
   sizeConfigs: Record<string, Omit<SizePricingForm, "size">>;
   cleaningPieceNgn?: number;
@@ -38,6 +46,8 @@ type ProductFormValues = {
 
 const ACCEPT_IMAGE_TYPES = "image/jpeg,image/png,image/webp,image/gif";
 const MAX_IMAGE_BYTES = 5 << 20;
+const ACCEPT_VIDEO_TYPES = "video/mp4,video/webm,video/quicktime";
+const MAX_VIDEO_BYTES = 5 << 20;
 
 function koboToNgn(kobo: number): number {
   return kobo / 100;
@@ -57,7 +67,10 @@ function revokeSlot(slot?: ImageSlot) {
   }
 }
 
-function slotForVariant(map: Record<string, ImageSlot>, variant: string): ImageSlot | undefined {
+function slotForVariant(
+  map: Record<string, ImageSlot>,
+  variant: string,
+): ImageSlot | undefined {
   if (map[variant]) return map[variant];
   const target = normalizeKey(variant);
   for (const [key, slot] of Object.entries(map)) {
@@ -91,6 +104,8 @@ function productToFormValues(product: Product): ProductFormValues {
     };
   }
 
+  const videoUrl = product.videoUrl?.trim();
+
   return {
     title: product.title,
     description: product.description,
@@ -98,6 +113,9 @@ function productToFormValues(product: Product): ProductFormValues {
     variants: product.variants,
     active: product.active,
     variantImagesByVariant,
+    authenticityVideo: videoUrl
+      ? { displayUrl: videoUrl, isLocal: false }
+      : null,
     sizeLabels,
     sizeConfigs,
     cleaningPieceNgn: product.cleaningPricing
@@ -109,7 +127,11 @@ function productToFormValues(product: Product): ProductFormValues {
   };
 }
 
-function formValuesToPayload(values: ProductFormValues, resolvedUrls: Record<string, string>) {
+function formValuesToPayload(
+  values: ProductFormValues,
+  resolvedUrls: Record<string, string>,
+  videoUrl: string,
+) {
   const cleaning = isCleaningCategory(values.category);
   const variantImages = values.variants.map((variant) => ({
     variant,
@@ -122,6 +144,7 @@ function formValuesToPayload(values: ProductFormValues, resolvedUrls: Record<str
     category: values.category,
     variants: values.variants,
     variantImages,
+    videoUrl,
     active: values.active,
   };
 
@@ -247,7 +270,9 @@ function VariantImagesField({
 
   if (variants.length === 0) {
     return (
-      <p className="text-sm text-neutral-500">Add variants above to attach an image for each.</p>
+      <p className="text-sm text-neutral-500">
+        Add variants above to attach an image for each.
+      </p>
     );
   }
 
@@ -277,9 +302,93 @@ function VariantImagesField({
         ))}
       </div>
       <p className="mt-2 text-xs text-neutral-500">
-        Each variant needs one photo. Images upload when you save — not when you pick a file.
+        Each variant needs one photo. Images upload when you save — not when you
+        pick a file.
       </p>
     </>
+  );
+}
+
+function AuthenticityVideoField({
+  value,
+  onChange,
+}: {
+  value?: VideoSlot | null;
+  onChange?: (next: VideoSlot | null) => void;
+}) {
+  const message = useAppMessage();
+  const slot = value ?? undefined;
+  const slotRef = useRef(slot);
+  slotRef.current = slot;
+
+  const fileList: UploadFile[] = slot?.displayUrl
+    ? [
+        {
+          uid: "authenticity-video",
+          name: slot.file?.name ?? "authenticity-video",
+          status: "done",
+          url: slot.displayUrl,
+        },
+      ]
+    : [];
+
+  useEffect(() => {
+    return () => {
+      revokeSlot(slotRef.current);
+    };
+  }, []);
+
+  return (
+    <div className="space-y-3">
+      <Upload
+        key={slot?.displayUrl ?? "video-empty"}
+        fileList={fileList}
+        maxCount={1}
+        accept={ACCEPT_VIDEO_TYPES}
+        beforeUpload={(file) => {
+          const okType =
+            ACCEPT_VIDEO_TYPES.split(",").includes(file.type) ||
+            /\.(mp4|webm|mov|m4v)$/i.test(file.name);
+          if (!okType) {
+            message.error("Use MP4, WebM, or MOV");
+            return Upload.LIST_IGNORE;
+          }
+          if (file.size > MAX_VIDEO_BYTES) {
+            message.error("Video must be 5MB or smaller");
+            return Upload.LIST_IGNORE;
+          }
+          const previewUrl = URL.createObjectURL(file);
+          revokeSlot(slot);
+          onChange?.({ displayUrl: previewUrl, file, isLocal: true });
+          return false;
+        }}
+        onRemove={() => {
+          revokeSlot(slot);
+          onChange?.(null);
+          return true;
+        }}
+      >
+        {fileList.length >= 1 ? null : (
+          <Button type="default">Upload authenticity video</Button>
+        )}
+      </Upload>
+      {slot?.displayUrl ? (
+        <video
+          key={slot.displayUrl}
+          src={slot.displayUrl}
+          className="max-h-56 w-full max-w-md rounded-lg border border-neutral-200 bg-black object-contain"
+          muted
+          playsInline
+          autoPlay
+          loop
+          controls
+        />
+      ) : null}
+      <p className="text-xs text-neutral-500">
+        Optional. Max 5MB (MP4, WebM, or MOV). Uploads when you save. Shown on
+        the storefront as authenticity media.
+      </p>
+    </div>
   );
 }
 
@@ -324,6 +433,7 @@ export function ProductForm({
       active: true,
       variants: [],
       variantImagesByVariant: {},
+      authenticityVideo: null,
       sizeLabels: [],
       sizeConfigs: {},
     };
@@ -347,7 +457,10 @@ export function ProductForm({
     }
 
     if (isCleaningCategory(values.category)) {
-      if ((values.cleaningPieceNgn ?? 0) <= 0 || (values.cleaningDozenNgn ?? 0) <= 0) {
+      if (
+        (values.cleaningPieceNgn ?? 0) <= 0 ||
+        (values.cleaningDozenNgn ?? 0) <= 0
+      ) {
         message.error("Enter piece and dozen prices greater than zero");
         return;
       }
@@ -382,7 +495,15 @@ export function ProductForm({
         }
       }
 
-      const payload = formValuesToPayload(values, resolvedUrls);
+      let videoUrl = "";
+      const videoSlot = values.authenticityVideo;
+      if (videoSlot?.file) {
+        videoUrl = await uploadProductVideo(videoSlot.file);
+      } else if (videoSlot?.displayUrl?.trim()) {
+        videoUrl = videoSlot.displayUrl.trim();
+      }
+
+      const payload = formValuesToPayload(values, resolvedUrls, videoUrl);
       if (mode === "create") {
         await createProduct(payload);
         message.success("Product created");
@@ -412,7 +533,11 @@ export function ProductForm({
         <Input />
       </Form.Item>
 
-      <Form.Item name="description" label="Description" rules={[{ required: true }]}>
+      <Form.Item
+        name="description"
+        label="Description"
+        rules={[{ required: true }]}
+      >
         <Input.TextArea rows={4} />
       </Form.Item>
 
@@ -424,9 +549,9 @@ export function ProductForm({
         name="variants"
         label="Variants"
         rules={[{ required: true, message: "Add at least one variant" }]}
-        extra="Free-text labels (e.g. beige, grey, floral). Type and press Enter."
+        extra="Free-text labels (e.g. suede). Type and press Enter."
       >
-        <Select mode="tags" placeholder="e.g. beige, grey" tokenSeparators={[","]} />
+        <Select mode="tags" placeholder="e.g. suede" tokenSeparators={[","]} />
       </Form.Item>
 
       <Form.Item name="active" label="Active" valuePropName="checked">
@@ -440,7 +565,10 @@ export function ProductForm({
         initialValue={{}}
         rules={[
           {
-            validator: async (_, val: Record<string, ImageSlot> | undefined) => {
+            validator: async (
+              _,
+              val: Record<string, ImageSlot> | undefined,
+            ) => {
               const variants: string[] = form.getFieldValue("variants") ?? [];
               if (variants.length === 0) return;
               const map = val ?? {};
@@ -457,11 +585,22 @@ export function ProductForm({
         <VariantImagesField variants={selectedVariants} />
       </Form.Item>
 
+      <Form.Item
+        name="authenticityVideo"
+        label="Authenticity video"
+        initialValue={null}
+      >
+        <AuthenticityVideoField />
+      </Form.Item>
+
       {cleaning ? (
         <div className="mb-6 rounded-lg border border-neutral-200 bg-neutral-50/80 p-4 dark:border-neutral-700 dark:bg-neutral-900/40">
-          <p className="mb-3 text-sm font-semibold sm:text-base">Cleaning pricing</p>
+          <p className="mb-3 text-sm font-semibold sm:text-base">
+            Cleaning pricing
+          </p>
           <p className="mb-3 text-xs text-neutral-500">
-            Dozen is always 12 pieces. Delivery is fixed at 1–3 business days (Mon–Sat).
+            Dozen is always 12 pieces. Delivery is fixed at 1–3 business days
+            (Mon–Sat).
           </p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Form.Item
@@ -488,7 +627,11 @@ export function ProductForm({
             rules={[{ required: true, message: "Add at least one size" }]}
             extra="Free-text dimensions (e.g. 2 x 5 ft, 60cm x 90cm). Type and press Enter."
           >
-            <Select mode="tags" placeholder="e.g. 2 x 5 ft" tokenSeparators={[","]} />
+            <Select
+              mode="tags"
+              placeholder="e.g. 2 x 5 ft"
+              tokenSeparators={[","]}
+            />
           </Form.Item>
 
           {selectedSizes.map((size: string) => (
@@ -496,7 +639,9 @@ export function ProductForm({
               key={size}
               className="mb-6 rounded-lg border border-neutral-200 bg-neutral-50/80 p-4 dark:border-neutral-700 dark:bg-neutral-900/40"
             >
-              <p className="mb-3 text-sm font-semibold sm:text-base">Pricing — {size}</p>
+              <p className="mb-3 text-sm font-semibold sm:text-base">
+                Pricing — {size}
+              </p>
               <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
                 <Form.Item
                   name={["sizeConfigs", size, "piecePriceNgn"]}

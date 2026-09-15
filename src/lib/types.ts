@@ -22,6 +22,8 @@ export type Product = {
   category: string;
   variants: string[];
   variantImages: VariantImage[];
+  /** Optional authenticity video (product-level). */
+  videoUrl?: string;
   sizePricings?: SizePricing[];
   cleaningPricing?: CleaningPricing | null;
   active: boolean;

@@ -19,3 +19,14 @@ export function productPriceRangeKobo(product: Product): { min: number; max: num
 export function productThumbnailUrl(product: Product): string | undefined {
   return product.variantImages?.[0]?.imageUrl;
 }
+
+/** Prefer authenticity video for catalogue/store thumbs; else first variant image. */
+export function productPrimaryMedia(
+  product: Product,
+): { kind: "video"; url: string } | { kind: "image"; url: string } | null {
+  const video = product.videoUrl?.trim();
+  if (video) return { kind: "video", url: video };
+  const image = productThumbnailUrl(product)?.trim();
+  if (image) return { kind: "image", url: image };
+  return null;
+}
