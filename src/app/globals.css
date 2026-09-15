@@ -8,6 +8,7 @@
   --color-hek-bg: #fafaf8;
   --color-hek-ink: #1c1917;
   --color-hek-muted: #6b6560;
+  --font-display: var(--font-cormorant), "Cormorant Garamond", Georgia, "Times New Roman", serif;
 }
 
 :root {

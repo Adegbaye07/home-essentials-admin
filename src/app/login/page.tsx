@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Alert, Button, Card, Form, Input, Spin, Typography } from "antd";
 
 import { ApiError, login } from "@/lib/api";
+import { BrandMark } from "@/components/brand-mark";
 
 function LoginForm() {
   const router = useRouter();
@@ -33,9 +34,9 @@ function LoginForm() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4 py-8 sm:px-6">
       <Card className="w-full min-w-0 max-w-md shadow-sm">
-        <Typography.Title level={3} className="mt-0!">
-          Home Essentials by Kamgol Admin
-        </Typography.Title>
+        <div className="mb-2 text-hek-primary">
+          <BrandMark size="lg" suffix="Admin" />
+        </div>
         <Typography.Paragraph type="secondary">Sign in to manage the catalogue.</Typography.Paragraph>
         {error ? (
           <Alert type="error" message={error} showIcon className="mb-4 wrap-break-word [&_.ant-alert-message]:wrap-break-word" />

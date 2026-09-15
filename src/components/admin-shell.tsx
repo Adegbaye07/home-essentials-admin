@@ -14,6 +14,7 @@ import {
 
 import { logout } from "@/lib/api";
 import { brand } from "@/lib/brand";
+import { BrandMark } from "@/components/brand-mark";
 
 const SCROLL_THRESHOLD = 28;
 
@@ -88,7 +89,7 @@ export function AdminShell({
   const solid = scrolled;
 
   const headerFg = solid ? "#ffffff" : brand.primary;
-  const headerHoverBg = solid ? "rgba(255, 255, 255, 0.1)" : "rgba(111, 78, 55, 0.12)";
+  const headerHoverBg = solid ? "rgba(255, 255, 255, 0.1)" : "rgba(174, 120, 32, 0.12)";
 
   const headerStyle = {
     ["--admin-header-fg" as string]: headerFg,
@@ -105,8 +106,7 @@ export function AdminShell({
     return `${base}${active ? " bg-hek-primary/10" : ""}`;
   }
 
-  const logoClass =
-    "admin-header-logo shrink-0 font-serif text-xl tracking-wide no-underline transition-colors duration-300 sm:text-2xl";
+  const logoClass = "admin-header-logo shrink-0 no-underline transition-colors duration-300";
 
   const adminBadgeClass = solid
     ? "hidden shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-xs font-medium tracking-wide text-white/70 sm:inline"
@@ -132,7 +132,7 @@ export function AdminShell({
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-4">
             <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4">
               <Link href="/products" className={logoClass}>
-                Home Essentials by Kamgol
+                <BrandMark size="md" />
               </Link>
               <span className={adminBadgeClass}>Admin</span>
               <nav className="flex min-w-0 items-center gap-1 overflow-x-auto text-sm sm:gap-2 sm:text-base">
