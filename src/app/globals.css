@@ -1,0 +1,77 @@
+@import "tailwindcss";
+@source "../../src/**/*.{js,ts,jsx,tsx}";
+
+@theme {
+  --color-hek-primary: #ae7820;
+  --color-hek-primary-dark: #8f6219;
+  --color-hek-accent: #d4a84b;
+  --color-hek-bg: #fafaf8;
+  --color-hek-ink: #1c1917;
+  --color-hek-muted: #6b6560;
+}
+
+:root {
+  --background: #fafaf8;
+  --foreground: #1c1917;
+}
+
+html {
+  height: 100%;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  color: var(--foreground);
+  background: var(--background);
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* Ant Design sets global `a { color: var(--ant-color-link) }`; override in admin header. */
+header[data-admin-header] a.admin-header-link,
+header[data-admin-header] a.admin-header-link:hover,
+header[data-admin-header] a.admin-header-link:active,
+header[data-admin-header] a.admin-header-link:focus {
+  color: var(--admin-header-fg) !important;
+}
+
+header[data-admin-header] a.admin-header-logo,
+header[data-admin-header] a.admin-header-logo:hover {
+  color: var(--admin-header-fg) !important;
+}
+
+header[data-admin-header] a.admin-header-interactive {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+header[data-admin-header] a.admin-header-interactive:hover {
+  background-color: var(--admin-header-hover-bg) !important;
+}
+
+header[data-admin-header] button.admin-header-interactive {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+header[data-admin-header] button.admin-header-interactive:hover {
+  background-color: var(--admin-header-hover-bg) !important;
+}
