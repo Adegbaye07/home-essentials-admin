@@ -1,65 +1,34 @@
 import type { OrderStatus, OrderType } from "./types";
 
 const CATEGORY_BY_VALUE = {
-  cross_body: "Cross body bags",
-  hobo: "Hobo bags",
-  duffel: "Duffel bags",
-  male_toilet: "Male toilet bags",
-  school: "School bags",
-  travel: "Traveling bags",
-  laptop: "Laptop bags",
-  purse: "Purse",
-  clutch: "Clutch bags",
-  tote: "Tote bags",
-  shoulder: "Shoulder bags",
-  shopping: "Shopping bags",
-  rope: "Rope bags",
-  satchel: "Satchels bags",
-  jute: "Jute bags",
-  lunch_box: "Lunch boxes",
-  waist_purse: "Waist purses",
-  folder: "Folder bags",
-  pencil_case: "Pencil cases",
-  hand_bag: "Hand bags",
-  flap_bag: "Flap bags",
+  foot_mats: "Foot mats",
+  door_mats: "Door mats",
+  center_mats: "Center mats",
+  rugs: "Rugs",
+  cleaning_essentials: "Cleaning essentials",
 } as const;
 
 export type CategoryValue = keyof typeof CATEGORY_BY_VALUE;
 
-/** Matches client store tab order: popular bag types first. */
 export const PRODUCT_CATEGORIES: { value: CategoryValue; label: string }[] = [
-  { value: "hand_bag", label: CATEGORY_BY_VALUE.hand_bag },
-  { value: "tote", label: CATEGORY_BY_VALUE.tote },
-  { value: "shoulder", label: CATEGORY_BY_VALUE.shoulder },
-  { value: "cross_body", label: CATEGORY_BY_VALUE.cross_body },
-  { value: "flap_bag", label: CATEGORY_BY_VALUE.flap_bag },
-  { value: "satchel", label: CATEGORY_BY_VALUE.satchel },
-  { value: "clutch", label: CATEGORY_BY_VALUE.clutch },
-  { value: "hobo", label: CATEGORY_BY_VALUE.hobo },
-  { value: "purse", label: CATEGORY_BY_VALUE.purse },
-  { value: "shopping", label: CATEGORY_BY_VALUE.shopping },
-  { value: "travel", label: CATEGORY_BY_VALUE.travel },
-  { value: "school", label: CATEGORY_BY_VALUE.school },
-  { value: "laptop", label: CATEGORY_BY_VALUE.laptop },
-  { value: "duffel", label: CATEGORY_BY_VALUE.duffel },
-  { value: "male_toilet", label: CATEGORY_BY_VALUE.male_toilet },
-  { value: "rope", label: CATEGORY_BY_VALUE.rope },
-  { value: "jute", label: CATEGORY_BY_VALUE.jute },
-  { value: "waist_purse", label: CATEGORY_BY_VALUE.waist_purse },
-  { value: "lunch_box", label: CATEGORY_BY_VALUE.lunch_box },
-  { value: "folder", label: CATEGORY_BY_VALUE.folder },
-  { value: "pencil_case", label: CATEGORY_BY_VALUE.pencil_case },
+  { value: "foot_mats", label: CATEGORY_BY_VALUE.foot_mats },
+  { value: "door_mats", label: CATEGORY_BY_VALUE.door_mats },
+  { value: "center_mats", label: CATEGORY_BY_VALUE.center_mats },
+  { value: "rugs", label: CATEGORY_BY_VALUE.rugs },
+  { value: "cleaning_essentials", label: CATEGORY_BY_VALUE.cleaning_essentials },
 ];
 
-const LEGACY_CATEGORY_LABELS: Record<string, string> = {
-  mens: "Men's",
-};
+export const CLEANING_CATEGORY: CategoryValue = "cleaning_essentials";
+
+export function isCleaningCategory(category: string | undefined): boolean {
+  return category === CLEANING_CATEGORY;
+}
 
 export function categoryLabel(value: string): string {
   if (value in CATEGORY_BY_VALUE) {
     return CATEGORY_BY_VALUE[value as CategoryValue];
   }
-  return LEGACY_CATEGORY_LABELS[value] ?? value;
+  return value;
 }
 
 export function categorySelectOptions(current?: string): { value: string; label: string }[] {
@@ -73,11 +42,7 @@ export function categorySelectOptions(current?: string): { value: string; label:
   return options;
 }
 
-export const SIZE_CODES = ["S", "M", "L", "XL", "XXL"] as const;
-
-export type SizeCode = (typeof SIZE_CODES)[number];
-
-/** All statuses for list filters and labels (includes pre-payment and custom-order states). */
+/** All statuses for list filters and labels. */
 export const ORDER_STATUSES: { value: OrderStatus; label: string }[] = [
   { value: "created", label: "Created" },
   { value: "pending_payment", label: "Pending payment" },
@@ -164,7 +129,6 @@ export function adminNextStatusOptions(
   const c = normalizeOrderStatus(current);
   switch (c) {
     case "created":
-      // Custom accept/reject use dedicated actions (Phase 5); not generic status select.
       return [];
     case "pending_payment":
       return [{ value: "paid", label: "Paid" }];

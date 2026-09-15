@@ -251,17 +251,33 @@ export default function OrderDetailPage() {
       key: "image",
       width: 72,
       render: (_, row) => (
-        <OrderItemImage src={row.imageUrl} alt={`${row.productTitle} — ${row.color}`} />
+        <OrderItemImage src={row.imageUrl} alt={`${row.productTitle} — ${row.variant}`} />
       ),
     },
     { title: "Product", dataIndex: "productTitle", key: "title", ellipsis: true },
-    { title: "Size", dataIndex: "size", key: "size", width: 72 },
-    { title: "Color", dataIndex: "color", key: "color", width: 88 },
-    { title: "Qty", dataIndex: "quantity", key: "qty", width: 64 },
+    { title: "Variant", dataIndex: "variant", key: "variant", width: 100 },
+    {
+      title: "Size",
+      dataIndex: "size",
+      key: "size",
+      width: 100,
+      render: (s: string | undefined) => s || "—",
+    },
     {
       title: "Unit",
+      dataIndex: "unit",
+      key: "buyUnit",
+      width: 88,
+      render: (u: string, row) =>
+        u === "bundle" && row.piecesPerBundle
+          ? `bundle (${row.piecesPerBundle})`
+          : u,
+    },
+    { title: "Qty", dataIndex: "quantity", key: "qty", width: 64 },
+    {
+      title: "Price",
       dataIndex: "unitPriceKobo",
-      key: "unit",
+      key: "price",
       width: 112,
       className: "whitespace-nowrap",
       render: (k: number) => formatKobo(k),
@@ -373,7 +389,7 @@ export default function OrderDetailPage() {
               <h2 className="mb-3 text-base font-semibold">Line items</h2>
               <div className="overflow-x-auto">
                 <Table
-                  rowKey={(r) => `${r.productId}-${r.size}-${r.color}-${r.quantity}`}
+                  rowKey={(r) => `${r.productId}-${r.variant}-${r.size ?? ""}-${r.unit}-${r.quantity}`}
                   columns={lineColumns}
                   dataSource={order.items}
                   pagination={false}

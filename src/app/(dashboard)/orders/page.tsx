@@ -34,7 +34,7 @@ function orderListImage(order: Order): { src?: string; alt: string } {
   if (!first) return { alt: "Order item" };
   return {
     src: first.imageUrl,
-    alt: `${first.productTitle} — ${first.color}`,
+    alt: `${first.productTitle} — ${first.variant}`,
   };
 }
 

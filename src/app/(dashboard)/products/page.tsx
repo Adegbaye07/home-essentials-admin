@@ -9,8 +9,8 @@ import { AdminShell, AdminNewProductButton } from "@/components/admin-shell";
 import {
   ProductCatalogueExpandedRow,
   ProductCatalogueThumb,
-  ProductColorTags,
   ProductSizeTags,
+  ProductVariantTags,
 } from "@/components/product-catalogue-details";
 import { categoryLabel, PRODUCT_CATEGORIES } from "@/lib/constants";
 import { listProducts, deleteProduct, ApiError } from "@/lib/api";
@@ -114,24 +114,24 @@ export default function ProductsPage() {
       render: (c: string) => categoryLabel(c),
     },
     {
-      title: "Colors",
-      key: "colors",
+      title: "Variants",
+      key: "variants",
       width: 200,
-      render: (_, record) => <ProductColorTags colors={record.colors} />,
+      render: (_, record) => <ProductVariantTags variants={record.variants} />,
     },
     {
-      title: "Sizes",
+      title: "Sizes / units",
       key: "sizes",
-      width: 140,
+      width: 160,
       render: (_, record) => <ProductSizeTags product={record} />,
     },
     {
-      title: "Unit price range",
+      title: "Price range",
       key: "prices",
       width: 160,
       className: "whitespace-nowrap text-sm",
       render: (_, record) => (
-        <span title="Min–max unit price across all sizes and qty tiers">
+        <span title="Min–max across piece/bundle or piece/dozen prices">
           {formatPriceRange(record)}
         </span>
       ),
@@ -227,7 +227,7 @@ export default function ProductsPage() {
         </Button>
       </div>
       <p className="mb-3 text-sm text-neutral-500">
-        Expand a row for full tier pricing per size and color images.
+        Expand a row for pricing details and variant images.
       </p>
       <div className="w-full overflow-x-auto">
         <Table

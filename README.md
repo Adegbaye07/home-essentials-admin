@@ -2,9 +2,9 @@
 
 Next.js admin dashboard — login, product catalogue, orders.
 
-## Phase 0 status
+## Phase 2 status
 
-Scaffold ready. Domain (categories, variants, piece/bundle pricing) lands in Phase 1–2. Gold brand `#AE7820` is applied to theme tokens.
+Product create/edit supports Home Essentials categories, variants + images, free-text size piece/bundle pricing, and cleaning piece/dozen pricing. Gold brand `#AE7820`.
 
 ## Prerequisites
 
@@ -14,7 +14,7 @@ Scaffold ready. Domain (categories, variants, piece/bundle pricing) lands in Pha
 
 ## Environment
 
-Copy [`.env.local.example`](.env.local.example) to `.env.local`:
+Create `.env.local`:
 
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:8080
@@ -27,4 +27,4 @@ npm install
 npm run dev
 ```
 
-Default: [http://localhost:3001](http://localhost:3001) if you set `npm run dev -- -p 3001`, or use port 3000 if free. Prefer **3001** for admin so it matches CORS defaults.
+Admin: [http://localhost:3001](http://localhost:3001)

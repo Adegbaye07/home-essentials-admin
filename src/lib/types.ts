@@ -1,18 +1,18 @@
-export type QtyTier = {
-  minQty: number;
-  maxQty?: number;
-  unitPriceKobo: number;
-  deliveryDays: number;
-};
-
-export type SizeVariant = {
-  code: string;
-  tiers: QtyTier[];
-};
-
-export type ColorImage = {
-  color: string;
+export type VariantImage = {
+  variant: string;
   imageUrl: string;
+};
+
+export type SizePricing = {
+  size: string;
+  piecePriceKobo: number;
+  bundlePriceKobo: number;
+  piecesPerBundle: number;
+};
+
+export type CleaningPricing = {
+  piecePriceKobo: number;
+  dozenPriceKobo: number;
 };
 
 export type Product = {
@@ -20,10 +20,11 @@ export type Product = {
   title: string;
   description: string;
   category: string;
-  colors: string[];
-  colorImages: ColorImage[];
+  variants: string[];
+  variantImages: VariantImage[];
+  sizePricings?: SizePricing[];
+  cleaningPricing?: CleaningPricing | null;
   active: boolean;
-  sizes: SizeVariant[];
   createdAt?: string;
   updatedAt?: string;
 };
@@ -63,11 +64,15 @@ export type OrderStatus =
 
 export type OrderType = "shop" | "custom";
 
+export type OrderUnit = "piece" | "bundle" | "dozen";
+
 export type OrderItem = {
   productId: string;
   productTitle: string;
-  size: string;
-  color: string;
+  variant: string;
+  size?: string;
+  unit: OrderUnit;
+  piecesPerBundle?: number;
   imageUrl?: string;
   quantity: number;
   unitPriceKobo: number;

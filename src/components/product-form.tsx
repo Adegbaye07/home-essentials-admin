@@ -1,51 +1,39 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Button,
-  Checkbox,
-  Form,
-  Input,
-  InputNumber,
-  Select,
-  Switch,
-  Upload,
-} from "antd";
+import { Button, Form, Input, InputNumber, Select, Switch, Upload } from "antd";
 import type { UploadFile } from "antd";
 import { useRouter } from "next/navigation";
 
 import { useAppMessage } from "@/hooks/use-app-message";
-import { categorySelectOptions, SIZE_CODES } from "@/lib/constants";
+import { categorySelectOptions, isCleaningCategory } from "@/lib/constants";
 import { createProduct, updateProduct, uploadProductImage } from "@/lib/api";
-import { formatDeliveryWindow } from "@/lib/delivery-display";
-import {
-  applyMaxQtyChange,
-  applyMinQtyChange,
-  defaultNewTier,
-  relinkTiersAfterRemove,
-  tierSectionLabel,
-  type TierForm,
-} from "@/lib/product-tier-utils";
-import type { ColorImage, Product, SizeVariant } from "@/lib/types";
+import type { Product, SizePricing } from "@/lib/types";
 
-type ColorImageSlot = {
-  /** Preview or existing remote URL shown in the Upload control. */
+type ImageSlot = {
   displayUrl: string;
-  /** Pending file — uploaded only on save. */
   file?: File;
-  /** True when displayUrl is an object URL we must revoke. */
   isLocal?: boolean;
+};
+
+type SizePricingForm = {
+  size: string;
+  piecePriceNgn: number;
+  bundlePriceNgn: number;
+  piecesPerBundle: number;
 };
 
 type ProductFormValues = {
   title: string;
   description: string;
   category: string;
-  colors: string[];
+  variants: string[];
   active: boolean;
-  colorImagesByColor: Record<string, ColorImageSlot>;
-  sizes: string[];
-  sizeConfigs: Record<string, { tiers: TierForm[] }>;
+  variantImagesByVariant: Record<string, ImageSlot>;
+  sizeLabels: string[];
+  sizeConfigs: Record<string, Omit<SizePricingForm, "size">>;
+  cleaningPieceNgn?: number;
+  cleaningDozenNgn?: number;
 };
 
 const ACCEPT_IMAGE_TYPES = "image/jpeg,image/png,image/webp,image/gif";
@@ -59,55 +47,47 @@ function ngnToKobo(ngn: number): number {
   return Math.round(ngn * 100);
 }
 
-function normalizeColorKey(color: string): string {
-  return color.trim().toLowerCase();
+function normalizeKey(value: string): string {
+  return value.trim().toLowerCase();
 }
 
-function revokeSlot(slot?: ColorImageSlot) {
+function revokeSlot(slot?: ImageSlot) {
   if (slot?.isLocal && slot.displayUrl.startsWith("blob:")) {
     URL.revokeObjectURL(slot.displayUrl);
   }
 }
 
-function slotForColor(
-  map: Record<string, ColorImageSlot>,
-  color: string,
-): ColorImageSlot | undefined {
-  if (map[color]) return map[color];
-  const target = normalizeColorKey(color);
+function slotForVariant(map: Record<string, ImageSlot>, variant: string): ImageSlot | undefined {
+  if (map[variant]) return map[variant];
+  const target = normalizeKey(variant);
   for (const [key, slot] of Object.entries(map)) {
-    if (normalizeColorKey(key) === target) return slot;
+    if (normalizeKey(key) === target) return slot;
   }
   return undefined;
 }
 
 function productToFormValues(product: Product): ProductFormValues {
-  const sizes = product.sizes.map((s) => s.code);
-  const sizeConfigs: ProductFormValues["sizeConfigs"] = {};
-  const colorImagesByColor: Record<string, ColorImageSlot> = {};
-
+  const variantImagesByVariant: Record<string, ImageSlot> = {};
   const imagesByNormalized = new Map<string, string>();
-  for (const ci of product.colorImages ?? []) {
-    if (ci.imageUrl?.trim()) {
-      imagesByNormalized.set(normalizeColorKey(ci.color), ci.imageUrl);
+  for (const vi of product.variantImages ?? []) {
+    if (vi.imageUrl?.trim()) {
+      imagesByNormalized.set(normalizeKey(vi.variant), vi.imageUrl);
     }
   }
-
-  for (const c of product.colors) {
-    const url = imagesByNormalized.get(normalizeColorKey(c));
+  for (const v of product.variants) {
+    const url = imagesByNormalized.get(normalizeKey(v));
     if (url) {
-      colorImagesByColor[c] = { displayUrl: url, isLocal: false };
+      variantImagesByVariant[v] = { displayUrl: url, isLocal: false };
     }
   }
 
-  for (const sv of product.sizes) {
-    sizeConfigs[sv.code] = {
-      tiers: sv.tiers.map((t) => ({
-        minQty: t.minQty,
-        maxQty: t.maxQty,
-        priceNgn: koboToNgn(t.unitPriceKobo),
-        deliveryDays: t.deliveryDays >= 1 ? t.deliveryDays : 7,
-      })),
+  const sizeLabels = (product.sizePricings ?? []).map((s) => s.size);
+  const sizeConfigs: ProductFormValues["sizeConfigs"] = {};
+  for (const sp of product.sizePricings ?? []) {
+    sizeConfigs[sp.size] = {
+      piecePriceNgn: koboToNgn(sp.piecePriceKobo),
+      bundlePriceNgn: koboToNgn(sp.bundlePriceKobo),
+      piecesPerBundle: sp.piecesPerBundle,
     };
   }
 
@@ -115,59 +95,77 @@ function productToFormValues(product: Product): ProductFormValues {
     title: product.title,
     description: product.description,
     category: product.category,
-    colors: product.colors,
+    variants: product.variants,
     active: product.active,
-    colorImagesByColor,
-    sizes,
+    variantImagesByVariant,
+    sizeLabels,
     sizeConfigs,
+    cleaningPieceNgn: product.cleaningPricing
+      ? koboToNgn(product.cleaningPricing.piecePriceKobo)
+      : undefined,
+    cleaningDozenNgn: product.cleaningPricing
+      ? koboToNgn(product.cleaningPricing.dozenPriceKobo)
+      : undefined,
   };
 }
 
 function formValuesToPayload(values: ProductFormValues, resolvedUrls: Record<string, string>) {
-  const sizes: SizeVariant[] = values.sizes.map((code) => {
-    const tiers = values.sizeConfigs[code]?.tiers ?? [];
-    return {
-      code,
-      tiers: tiers.map((t) => ({
-        minQty: t.minQty,
-        maxQty: t.maxQty === undefined || t.maxQty === null ? undefined : t.maxQty,
-        unitPriceKobo: ngnToKobo(t.priceNgn),
-        deliveryDays: t.deliveryDays,
-      })),
-    };
-  });
-
-  const colorImages: ColorImage[] = values.colors.map((color) => ({
-    color,
-    imageUrl: resolvedUrls[color] ?? "",
+  const cleaning = isCleaningCategory(values.category);
+  const variantImages = values.variants.map((variant) => ({
+    variant,
+    imageUrl: resolvedUrls[variant] ?? "",
   }));
 
-  return {
+  const base = {
     title: values.title,
     description: values.description,
     category: values.category,
-    colors: values.colors,
-    colorImages,
+    variants: values.variants,
+    variantImages,
     active: values.active,
-    sizes,
+  };
+
+  if (cleaning) {
+    return {
+      ...base,
+      cleaningPricing: {
+        piecePriceKobo: ngnToKobo(values.cleaningPieceNgn ?? 0),
+        dozenPriceKobo: ngnToKobo(values.cleaningDozenNgn ?? 0),
+      },
+    };
+  }
+
+  const sizePricings: SizePricing[] = (values.sizeLabels ?? []).map((size) => {
+    const cfg = values.sizeConfigs[size];
+    return {
+      size,
+      piecePriceKobo: ngnToKobo(cfg?.piecePriceNgn ?? 0),
+      bundlePriceKobo: ngnToKobo(cfg?.bundlePriceNgn ?? 0),
+      piecesPerBundle: cfg?.piecesPerBundle ?? 1,
+    };
+  });
+
+  return {
+    ...base,
+    sizePricings,
   };
 }
 
-function ColorImageUpload({
-  color,
+function VariantImageUpload({
+  variant,
   slot,
   onChange,
 }: {
-  color: string;
-  slot?: ColorImageSlot;
-  onChange: (next?: ColorImageSlot) => void;
+  variant: string;
+  slot?: ImageSlot;
+  onChange: (next?: ImageSlot) => void;
 }) {
   const message = useAppMessage();
   const fileList: UploadFile[] = slot?.displayUrl
     ? [
         {
-          uid: color,
-          name: slot.file?.name ?? `${color}-image`,
+          uid: variant,
+          name: slot.file?.name ?? `${variant}-image`,
           status: "done",
           url: slot.displayUrl,
           thumbUrl: slot.displayUrl,
@@ -177,9 +175,9 @@ function ColorImageUpload({
 
   return (
     <div className="rounded-lg border border-neutral-200 bg-white p-3 dark:border-neutral-700">
-      <p className="mb-2 text-sm font-medium capitalize">{color}</p>
+      <p className="mb-2 text-sm font-medium capitalize">{variant}</p>
       <Upload
-        key={slot?.displayUrl ?? `${color}-empty`}
+        key={slot?.displayUrl ?? `${variant}-empty`}
         listType="picture-card"
         fileList={fileList}
         maxCount={1}
@@ -211,14 +209,14 @@ function ColorImageUpload({
   );
 }
 
-function ColorImagesField({
+function VariantImagesField({
   value,
   onChange,
-  colors,
+  variants,
 }: {
-  value?: Record<string, ColorImageSlot>;
-  onChange?: (next: Record<string, ColorImageSlot>) => void;
-  colors: string[];
+  value?: Record<string, ImageSlot>;
+  onChange?: (next: Record<string, ImageSlot>) => void;
+  variants: string[];
 }) {
   const map = value ?? {};
   const mapRef = useRef(map);
@@ -226,49 +224,49 @@ function ColorImagesField({
 
   useEffect(() => {
     if (!onChange) return;
-    const staleKeys = Object.keys(map).filter((k) => !colors.includes(k));
+    const staleKeys = Object.keys(map).filter((k) => !variants.includes(k));
     if (staleKeys.length === 0) return;
-    const next: Record<string, ColorImageSlot> = {};
-    for (const c of colors) {
-      const slot = slotForColor(map, c);
-      if (slot) next[c] = slot;
+    const next: Record<string, ImageSlot> = {};
+    for (const v of variants) {
+      const slot = slotForVariant(map, v);
+      if (slot) next[v] = slot;
     }
     for (const key of staleKeys) {
       revokeSlot(map[key]);
     }
     onChange(next);
-  }, [colors, map, onChange]);
+  }, [variants, map, onChange]);
 
   useEffect(() => {
     return () => {
       for (const slot of Object.values(mapRef.current)) {
-        revokeSlot(slot as ColorImageSlot);
+        revokeSlot(slot);
       }
     };
   }, []);
 
-  if (colors.length === 0) {
+  if (variants.length === 0) {
     return (
-      <p className="text-sm text-neutral-500">Add colors above to add an image for each.</p>
+      <p className="text-sm text-neutral-500">Add variants above to attach an image for each.</p>
     );
   }
 
   return (
     <>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {colors.map((color) => (
-          <ColorImageUpload
-            key={color}
-            color={color}
-            slot={slotForColor(map, color)}
+        {variants.map((variant) => (
+          <VariantImageUpload
+            key={variant}
+            variant={variant}
+            slot={slotForVariant(map, variant)}
             onChange={(nextSlot) => {
-              const next: Record<string, ColorImageSlot> = { ...map };
+              const next: Record<string, ImageSlot> = { ...map };
               if (nextSlot) {
-                next[color] = nextSlot;
+                next[variant] = nextSlot;
               } else {
-                delete next[color];
+                delete next[variant];
                 for (const key of Object.keys(next)) {
-                  if (normalizeColorKey(key) === normalizeColorKey(color)) {
+                  if (normalizeKey(key) === normalizeKey(variant)) {
                     delete next[key];
                   }
                 }
@@ -279,8 +277,7 @@ function ColorImagesField({
         ))}
       </div>
       <p className="mt-2 text-xs text-neutral-500">
-        Each color needs one photo. Images upload when you save the product — not when you pick a
-        file.
+        Each variant needs one photo. Images upload when you save — not when you pick a file.
       </p>
     </>
   );
@@ -300,17 +297,24 @@ export function ProductForm({
   const [submitting, setSubmitting] = useState(false);
   const message = useAppMessage();
 
-  const selectedSizes = Form.useWatch("sizes", form) ?? [];
-  const selectedColors: string[] = Form.useWatch("colors", form) ?? [];
+  const selectedVariants: string[] = Form.useWatch("variants", form) ?? [];
+  const selectedSizes: string[] = Form.useWatch("sizeLabels", form) ?? [];
+  const category = Form.useWatch("category", form);
+  const cleaning = isCleaningCategory(category);
 
   useEffect(() => {
+    if (cleaning) return;
     for (const size of selectedSizes) {
-      const tiers = form.getFieldValue(["sizeConfigs", size, "tiers"]);
-      if (!tiers || tiers.length === 0) {
-        form.setFieldValue(["sizeConfigs", size, "tiers"], [{ minQty: 1, priceNgn: 0, deliveryDays: 7 }]);
+      const cfg = form.getFieldValue(["sizeConfigs", size]);
+      if (!cfg) {
+        form.setFieldValue(["sizeConfigs", size], {
+          piecePriceNgn: 0,
+          bundlePriceNgn: 0,
+          piecesPerBundle: 1,
+        });
       }
     }
-  }, [selectedSizes, form]);
+  }, [selectedSizes, cleaning, form]);
 
   const initialValues = useMemo(() => {
     if (initialProduct) {
@@ -318,9 +322,9 @@ export function ProductForm({
     }
     return {
       active: true,
-      colors: [],
-      colorImagesByColor: {},
-      sizes: [],
+      variants: [],
+      variantImagesByVariant: {},
+      sizeLabels: [],
       sizeConfigs: {},
     };
   }, [initialProduct]);
@@ -332,28 +336,49 @@ export function ProductForm({
   }, [initialProduct, form]);
 
   async function onFinish(values: ProductFormValues) {
-    const colorImagesByColor = values.colorImagesByColor ?? {};
+    const images = values.variantImagesByVariant ?? {};
 
-    for (const c of values.colors) {
-      const slot = slotForColor(colorImagesByColor, c);
+    for (const v of values.variants) {
+      const slot = slotForVariant(images, v);
       if (!slot?.displayUrl?.trim() && !slot?.file) {
-        message.error(`Add an image for color "${c}"`);
+        message.error(`Add an image for variant "${v}"`);
         return;
+      }
+    }
+
+    if (isCleaningCategory(values.category)) {
+      if ((values.cleaningPieceNgn ?? 0) <= 0 || (values.cleaningDozenNgn ?? 0) <= 0) {
+        message.error("Enter piece and dozen prices greater than zero");
+        return;
+      }
+    } else {
+      if ((values.sizeLabels ?? []).length === 0) {
+        message.error("Add at least one size");
+        return;
+      }
+      for (const size of values.sizeLabels) {
+        const cfg = values.sizeConfigs[size];
+        if (!cfg || cfg.piecePriceNgn <= 0 || cfg.bundlePriceNgn <= 0) {
+          message.error(`Enter piece and bundle prices for size "${size}"`);
+          return;
+        }
+        if (!cfg.piecesPerBundle || cfg.piecesPerBundle < 1) {
+          message.error(`Pieces per bundle must be at least 1 for "${size}"`);
+          return;
+        }
       }
     }
 
     setSubmitting(true);
     try {
       const resolvedUrls: Record<string, string> = {};
-      for (const c of values.colors) {
-        const slot = slotForColor(colorImagesByColor, c);
-        if (!slot) {
-          throw new Error(`Missing image for color "${c}"`);
-        }
+      for (const v of values.variants) {
+        const slot = slotForVariant(images, v);
+        if (!slot) throw new Error(`Missing image for variant "${v}"`);
         if (slot.file) {
-          resolvedUrls[c] = await uploadProductImage(slot.file);
+          resolvedUrls[v] = await uploadProductImage(slot.file);
         } else {
-          resolvedUrls[c] = slot.displayUrl;
+          resolvedUrls[v] = slot.displayUrl;
         }
       }
 
@@ -395,8 +420,13 @@ export function ProductForm({
         <Select options={categorySelectOptions(initialProduct?.category)} />
       </Form.Item>
 
-      <Form.Item name="colors" label="Colors" rules={[{ required: true, message: "Add at least one color" }]}>
-        <Select mode="tags" placeholder="e.g. black, tan" tokenSeparators={[","]} />
+      <Form.Item
+        name="variants"
+        label="Variants"
+        rules={[{ required: true, message: "Add at least one variant" }]}
+        extra="Free-text labels (e.g. beige, grey, floral). Type and press Enter."
+      >
+        <Select mode="tags" placeholder="e.g. beige, grey" tokenSeparators={[","]} />
       </Form.Item>
 
       <Form.Item name="active" label="Active" valuePropName="checked">
@@ -404,193 +434,112 @@ export function ProductForm({
       </Form.Item>
 
       <Form.Item
-        name="colorImagesByColor"
-        label="Image per color"
-        required={selectedColors.length > 0}
+        name="variantImagesByVariant"
+        label="Image per variant"
+        required={selectedVariants.length > 0}
         initialValue={{}}
         rules={[
           {
-            validator: async (_, val: Record<string, ColorImageSlot> | undefined) => {
-              const colors: string[] = form.getFieldValue("colors") ?? [];
-              if (colors.length === 0) return;
+            validator: async (_, val: Record<string, ImageSlot> | undefined) => {
+              const variants: string[] = form.getFieldValue("variants") ?? [];
+              if (variants.length === 0) return;
               const map = val ?? {};
-              for (const c of colors) {
-                const slot = slotForColor(map, c);
+              for (const v of variants) {
+                const slot = slotForVariant(map, v);
                 if (!slot?.displayUrl?.trim() && !slot?.file) {
-                  throw new Error(`Add an image for color "${c}"`);
+                  throw new Error(`Add an image for variant "${v}"`);
                 }
               }
             },
           },
         ]}
       >
-        <ColorImagesField colors={selectedColors} />
+        <VariantImagesField variants={selectedVariants} />
       </Form.Item>
 
-      <Form.Item name="sizes" label="Sizes" rules={[{ required: true, message: "Select at least one size" }]}>
-        <Checkbox.Group
-          className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4"
-          options={SIZE_CODES.map((s) => ({ label: s, value: s }))}
-        />
-      </Form.Item>
-
-      {selectedSizes.map((size: string) => (
-        <div
-          key={size}
-          className="mb-6 rounded-lg border border-neutral-200 bg-neutral-50/80 p-4 dark:border-neutral-700 dark:bg-neutral-900/40"
-        >
-          <TypographySection title={`Pricing tiers — ${size}`} />
-          <Form.List name={["sizeConfigs", size, "tiers"]}>
-            {(fields, { add }) => (
-              <>
-                {fields.map((field) => (
-                  <TierFields
-                    key={field.key}
-                    field={field}
-                    size={size}
-                    tierCount={fields.length}
-                    onRemove={() => {
-                      const tiersPath = tiersPathForSize(size);
-                      const current = (form.getFieldValue(tiersPath) ?? []) as TierForm[];
-                      const remaining = current.filter((_, index) => index !== field.name);
-                      const nextTiers =
-                        remaining.length > 0
-                          ? relinkTiersAfterRemove(remaining)
-                          : [{ minQty: 1, priceNgn: 0, deliveryDays: 7 }];
-                      form.setFieldValue(tiersPath, nextTiers);
-                    }}
-                  />
-                ))}
-                <Button
-                  type="dashed"
-                  onClick={() => {
-                    const tiersPath = tiersPathForSize(size);
-                    const current = (form.getFieldValue(tiersPath) ?? []) as TierForm[];
-                    add(defaultNewTier(current));
-                  }}
-                  block
-                >
-                  Add tier
-                </Button>
-              </>
-            )}
-          </Form.List>
+      {cleaning ? (
+        <div className="mb-6 rounded-lg border border-neutral-200 bg-neutral-50/80 p-4 dark:border-neutral-700 dark:bg-neutral-900/40">
+          <p className="mb-3 text-sm font-semibold sm:text-base">Cleaning pricing</p>
+          <p className="mb-3 text-xs text-neutral-500">
+            Dozen is always 12 pieces. Delivery is fixed at 1–3 business days (Mon–Sat).
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Form.Item
+              name="cleaningPieceNgn"
+              label="Piece price (₦)"
+              rules={[{ required: true, message: "Required" }]}
+            >
+              <InputNumber min={0} step={100} className="w-full!" />
+            </Form.Item>
+            <Form.Item
+              name="cleaningDozenNgn"
+              label="Dozen price (₦)"
+              rules={[{ required: true, message: "Required" }]}
+            >
+              <InputNumber min={0} step={100} className="w-full!" />
+            </Form.Item>
+          </div>
         </div>
-      ))}
+      ) : (
+        <>
+          <Form.Item
+            name="sizeLabels"
+            label="Sizes"
+            rules={[{ required: true, message: "Add at least one size" }]}
+            extra="Free-text dimensions (e.g. 2 x 5 ft, 60cm x 90cm). Type and press Enter."
+          >
+            <Select mode="tags" placeholder="e.g. 2 x 5 ft" tokenSeparators={[","]} />
+          </Form.Item>
 
-      <Button type="primary" htmlType="submit" loading={submitting} block className="sm:inline-block sm:w-auto">
+          {selectedSizes.map((size: string) => (
+            <div
+              key={size}
+              className="mb-6 rounded-lg border border-neutral-200 bg-neutral-50/80 p-4 dark:border-neutral-700 dark:bg-neutral-900/40"
+            >
+              <p className="mb-3 text-sm font-semibold sm:text-base">Pricing — {size}</p>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <Form.Item
+                  name={["sizeConfigs", size, "piecePriceNgn"]}
+                  label="Piece price (₦)"
+                  rules={[{ required: true, message: "Required" }]}
+                >
+                  <InputNumber min={0} step={100} className="w-full!" />
+                </Form.Item>
+                <Form.Item
+                  name={["sizeConfigs", size, "bundlePriceNgn"]}
+                  label="Bundle price (₦)"
+                  rules={[{ required: true, message: "Required" }]}
+                >
+                  <InputNumber min={0} step={100} className="w-full!" />
+                </Form.Item>
+                <Form.Item
+                  name={["sizeConfigs", size, "piecesPerBundle"]}
+                  label="Pieces per bundle"
+                  rules={[
+                    { required: true, message: "Required" },
+                    { type: "number", min: 1, message: "At least 1" },
+                  ]}
+                >
+                  <InputNumber min={1} className="w-full!" />
+                </Form.Item>
+              </div>
+            </div>
+          ))}
+          <p className="mb-4 text-xs text-neutral-500">
+            Delivery is fixed at 1–3 business days (Mon–Sat) for all products.
+          </p>
+        </>
+      )}
+
+      <Button
+        type="primary"
+        htmlType="submit"
+        loading={submitting}
+        block
+        className="sm:inline-block sm:w-auto"
+      >
         {mode === "create" ? "Create product" : "Save changes"}
       </Button>
     </Form>
-  );
-}
-
-function tiersPathForSize(size: string): ["sizeConfigs", string, "tiers"] {
-  return ["sizeConfigs", size, "tiers"];
-}
-
-function TypographySection({ title }: { title: string }) {
-  return <p className="mb-3 text-sm font-semibold sm:text-base">{title}</p>;
-}
-
-function TierFields({
-  field,
-  size,
-  tierCount,
-  onRemove,
-}: {
-  field: { name: number; key: React.Key };
-  size: string;
-  tierCount: number;
-  onRemove: () => void;
-}) {
-  const form = Form.useFormInstance<ProductFormValues>();
-  const tiersPath = useMemo(() => tiersPathForSize(size), [size]);
-  const deliveryDays = Form.useWatch([...tiersPath, field.name, "deliveryDays"]) as
-    | number
-    | undefined;
-  const preview =
-    deliveryDays != null && deliveryDays >= 1 ? formatDeliveryWindow(deliveryDays) : null;
-  const isFirstTier = field.name === 0;
-
-  function updateTiers(nextTiers: TierForm[]) {
-    form.setFieldValue(tiersPath, nextTiers);
-  }
-
-  function handleMinQtyChange(value: number | null) {
-    if (value == null || isFirstTier) {
-      return;
-    }
-    const current = (form.getFieldValue(tiersPath) ?? []) as TierForm[];
-    updateTiers(applyMinQtyChange(current, field.name, value));
-  }
-
-  function handleMaxQtyChange(value: number | null) {
-    const current = (form.getFieldValue(tiersPath) ?? []) as TierForm[];
-    updateTiers(applyMaxQtyChange(current, field.name, value));
-  }
-
-  return (
-    <div className="mb-3 border-b border-neutral-200 pb-3 last:border-0">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">
-        {tierSectionLabel(field.name, tierCount)}
-      </p>
-      <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-5 xl:items-end">
-        <Form.Item
-          {...field}
-          name={[field.name, "minQty"]}
-          label="Min qty"
-          rules={[{ required: true }]}
-          className="mb-0"
-        >
-          <InputNumber
-            min={1}
-            className="w-full!"
-            disabled={isFirstTier}
-            onChange={handleMinQtyChange}
-          />
-        </Form.Item>
-        <Form.Item
-          {...field}
-          name={[field.name, "maxQty"]}
-          label="Max qty (empty = no limit)"
-          className="mb-0"
-        >
-          <InputNumber min={1} className="w-full!" onChange={handleMaxQtyChange} />
-        </Form.Item>
-        <Form.Item
-          {...field}
-          name={[field.name, "priceNgn"]}
-          label="Price (₦)"
-          rules={[{ required: true }]}
-          className="mb-0"
-        >
-          <InputNumber min={0} step={100} className="w-full!" />
-        </Form.Item>
-        <Form.Item
-          {...field}
-          name={[field.name, "deliveryDays"]}
-          label="Delivery (days)"
-          rules={[
-            { required: true, message: "Required" },
-            { type: "number", min: 1, message: "At least 1 day" },
-          ]}
-          className="mb-0"
-        >
-          <InputNumber min={1} max={365} className="w-full!" />
-        </Form.Item>
-        <Button
-          danger
-          type="link"
-          onClick={onRemove}
-          className="h-fit justify-self-start xl:mb-1"
-        >
-          Remove tier
-        </Button>
-      </div>
-      {preview ? (
-        <p className="mt-2 text-xs leading-relaxed text-neutral-600">{preview}</p>
-      ) : null}
-    </div>
   );
 }
