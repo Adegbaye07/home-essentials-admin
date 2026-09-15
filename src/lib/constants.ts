@@ -1,4 +1,4 @@
-import type { OrderStatus, OrderType } from "./types";
+import type { OrderStatus } from "./types";
 
 const CATEGORY_BY_VALUE = {
   foot_mats: "Foot mats",
@@ -44,45 +44,20 @@ export function categorySelectOptions(current?: string): { value: string; label:
 
 /** All statuses for list filters and labels. */
 export const ORDER_STATUSES: { value: OrderStatus; label: string }[] = [
-  { value: "created", label: "Created" },
   { value: "pending_payment", label: "Pending payment" },
   { value: "abandoned", label: "Abandoned" },
-  { value: "rejected", label: "Rejected" },
   { value: "paid", label: "Paid" },
   { value: "packing", label: "Packing" },
   { value: "in_transit", label: "In transit" },
   { value: "delivered", label: "Delivered" },
 ];
 
-export const ORDER_TYPES: { value: OrderType; label: string }[] = [
-  { value: "shop", label: "Shop" },
-  { value: "custom", label: "Custom" },
-];
-
-export function orderTypeLabel(type: string | undefined): string {
-  if (!type || type === "shop") return "Shop";
-  return ORDER_TYPES.find((t) => t.value === type)?.label ?? type;
-}
-
-export function orderTypeColor(type: string | undefined): string {
-  const t = !type || type === "shop" ? "shop" : type;
-  switch (t) {
-    case "custom":
-      return "magenta";
-    case "shop":
-    default:
-      return "geekblue";
-  }
-}
-
-export function normalizeOrderType(type: string | undefined): OrderType {
-  return type === "custom" ? "custom" : "shop";
-}
-
 const LEGACY_STATUS_LABELS: Record<string, string> = {
   processing: "Packing",
   shipped: "In transit",
   cancelled: "Cancelled",
+  created: "Created",
+  rejected: "Rejected",
 };
 
 export function normalizeOrderStatus(status: OrderStatus | string): OrderStatus {
@@ -128,11 +103,10 @@ export function adminNextStatusOptions(
 ): { value: OrderStatus; label: string }[] {
   const c = normalizeOrderStatus(current);
   switch (c) {
-    case "created":
-      return [];
     case "pending_payment":
       return [{ value: "paid", label: "Paid" }];
     case "abandoned":
+    case "created":
     case "rejected":
       return [];
     case "paid":

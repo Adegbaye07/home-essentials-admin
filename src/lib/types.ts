@@ -62,8 +62,6 @@ export type OrderStatus =
   | "in_transit"
   | "delivered";
 
-export type OrderType = "shop" | "custom";
-
 export type OrderUnit = "piece" | "bundle" | "dozen";
 
 export type OrderItem = {
@@ -77,16 +75,6 @@ export type OrderItem = {
   quantity: number;
   unitPriceKobo: number;
   lineTotalKobo: number;
-};
-
-export type CustomRequest = {
-  title: string;
-  description: string;
-  sizes: string[];
-  colors: string[];
-  quantity: number;
-  offeredTotalKobo: number;
-  sampleImageUrl?: string;
 };
 
 export type CustomerInfo = {
@@ -104,9 +92,8 @@ export type StatusHistoryEntry = {
 
 export type Order = {
   id: string;
-  orderType?: OrderType;
+  orderType?: "shop" | "custom";
   items: OrderItem[];
-  custom?: CustomRequest;
   customer: CustomerInfo;
   status: OrderStatus;
   statusHistory: StatusHistoryEntry[];

@@ -159,13 +159,11 @@ export async function uploadProductImage(file: File): Promise<string> {
 
 export async function listOrders(params?: {
   status?: string;
-  orderType?: string;
   page?: number;
   page_size?: number;
 }): Promise<Paginated<Order>> {
   const search = new URLSearchParams();
   if (params?.status) search.set("status", params.status);
-  if (params?.orderType) search.set("orderType", params.orderType);
   if (params?.page !== undefined) search.set("page", String(params.page));
   if (params?.page_size !== undefined) search.set("page_size", String(params.page_size));
 
@@ -197,50 +195,6 @@ export async function updateOrderStatus(
     throw new ApiError(await parseError(res), res.status);
   }
   return (await res.json()) as Order;
-}
-
-export type CustomPaymentLinkResult = {
-  order: Order;
-  authorizationUrl: string;
-  paystackReference: string;
-};
-
-export async function acceptCustomOrder(
-  id: string,
-  body: { amountKobo: number },
-): Promise<CustomPaymentLinkResult> {
-  const res = await apiFetch(`/api/v1/admin/orders/${id}/accept`, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    throw new ApiError(await parseError(res), res.status);
-  }
-  return (await res.json()) as CustomPaymentLinkResult;
-}
-
-export async function rejectCustomOrder(
-  id: string,
-  body: { reason: string },
-): Promise<Order> {
-  const res = await apiFetch(`/api/v1/admin/orders/${id}/reject`, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) {
-    throw new ApiError(await parseError(res), res.status);
-  }
-  return (await res.json()) as Order;
-}
-
-export async function resendCustomPaymentLink(id: string): Promise<CustomPaymentLinkResult> {
-  const res = await apiFetch(`/api/v1/admin/orders/${id}/resend-payment-link`, {
-    method: "POST",
-  });
-  if (!res.ok) {
-    throw new ApiError(await parseError(res), res.status);
-  }
-  return (await res.json()) as CustomPaymentLinkResult;
 }
 
 export async function deleteAbandonedOrder(id: string): Promise<void> {
