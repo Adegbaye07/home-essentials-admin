@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { Alert, Spin, Typography } from "antd";
 
+import { config } from "@/lib/config";
+
 type HealthResponse = {
   status: string;
   service?: string;
@@ -14,7 +16,7 @@ type ReadyResponse = {
 };
 
 export function ApiHealthStatus() {
-  const base = process.env.NEXT_PUBLIC_API_URL;
+  const base = config.apiUrl.replace(/\/$/, "");
 
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [ready, setReady] = useState<ReadyResponse | null>(null);
@@ -22,12 +24,6 @@ export function ApiHealthStatus() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!base) {
-      setError("NEXT_PUBLIC_API_URL is not set");
-      setLoading(false);
-      return;
-    }
-
     let cancelled = false;
 
     async function load() {

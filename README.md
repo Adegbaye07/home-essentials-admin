@@ -8,15 +8,9 @@ Next.js admin dashboard — login, product catalogue, and order fulfilment.
 - API running ([home-essentials-backend](../home-essentials-backend))
 - Admin user seeded in MongoDB ([admin-seed.md](../home-essentials-backend/docs/admin-seed.md))
 
-## Environment
+## Config
 
-Create `.env.local` (not committed):
-
-```bash
-NEXT_PUBLIC_API_URL=http://localhost:8080
-```
-
-In production, point this at your deployed API (`https://api.example.com`). Ensure backend `CORS_ORIGINS` includes this admin origin (local default port **3001**).
+API URL lives in [`src/lib/config.ts`](src/lib/config.ts). Swap `apiUrl` there for local backend testing. Ensure backend `CORS_ORIGINS` includes this admin origin (local default port **3001**).
 
 ## Run
 

@@ -1,12 +1,9 @@
 import { clearToken, getToken, setToken } from "./auth";
+import { config } from "./config";
 import type { LoginResponse, Order, Paginated, Product } from "./types";
 
 function baseURL(): string {
-  const base = process.env.NEXT_PUBLIC_API_URL;
-  if (!base) {
-    throw new Error("NEXT_PUBLIC_API_URL is not set");
-  }
-  return base.replace(/\/$/, "");
+  return config.apiUrl.replace(/\/$/, "");
 }
 
 export class ApiError extends Error {
