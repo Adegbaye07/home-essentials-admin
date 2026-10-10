@@ -27,7 +27,7 @@ Admin: [http://localhost:3001](http://localhost:3001)
 | --------------------------------------- | -------------------------------------------------------------------------------------- |
 | `/login`                                | Admin JWT login                                                                        |
 | `/products`                             | Catalogue list                                                                         |
-| `/products/new` · `/products/[id]/edit` | Create / edit (variants, sizes or cleaning pricing, optional authenticity video ≤5MB) |
+| `/products/new` · `/products/[id]/edit` | Create / edit (variant images ≤1MB, sizes or cleaning pricing, optional video ≤5MB) |
 | `/orders` · `/orders/[id]`              | List / detail; status chain; delete abandoned                                          |
 
 ## Brand

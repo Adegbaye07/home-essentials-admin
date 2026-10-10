@@ -162,6 +162,16 @@ export default function OrderDetailPage() {
   const showGenericStatus =
     !!order && !readOnlyAbandoned && statusOptions.length > 0;
 
+  const itemsSubtotal =
+    order?.subtotalAmountKobo ??
+    order?.items.reduce((s, it) => s + it.lineTotalKobo, 0) ??
+    0;
+  const deliveryFee =
+    order == null
+      ? 0
+      : (order.deliveryFeeKobo ??
+        Math.max(0, order.totalAmountKobo - itemsSubtotal));
+
   return (
     <AdminShell
       contentWidth="wide"
@@ -192,6 +202,12 @@ export default function OrderDetailPage() {
           </div>
 
           <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }}>
+            <Descriptions.Item label="Subtotal">
+              {formatKobo(itemsSubtotal)}
+            </Descriptions.Item>
+            <Descriptions.Item label="Delivery">
+              {deliveryFee > 0 ? formatKobo(deliveryFee) : "Free"}
+            </Descriptions.Item>
             <Descriptions.Item label="Total">
               {formatKobo(order.totalAmountKobo)}
             </Descriptions.Item>

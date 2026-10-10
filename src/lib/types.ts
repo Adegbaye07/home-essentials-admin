@@ -99,6 +99,8 @@ export type Order = {
   customer: CustomerInfo;
   status: OrderStatus;
   statusHistory: StatusHistoryEntry[];
+  subtotalAmountKobo?: number;
+  deliveryFeeKobo?: number;
   totalAmountKobo: number;
   paystackReference: string;
   trackingNumber?: string;

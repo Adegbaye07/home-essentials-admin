@@ -2,17 +2,23 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Form, Input, InputNumber, Select, Switch, Upload } from "antd";
-import type { UploadFile } from "antd";
+import type { FormInstance, UploadFile } from "antd";
 import { useRouter } from "next/navigation";
 
 import { useAppMessage } from "@/hooks/use-app-message";
-import { categorySelectOptions, isCleaningCategory } from "@/lib/constants";
+import {
+  categorySelectOptions,
+  DOZEN_PIECE_COUNT,
+  isCleaningCategory,
+} from "@/lib/constants";
 import {
   createProduct,
   updateProduct,
   uploadProductImage,
   uploadProductVideo,
 } from "@/lib/api";
+import { formatKobo } from "@/lib/format";
+import { effectivePiecePriceKobo } from "@/lib/pricing";
 import type { Product, SizePricing } from "@/lib/types";
 
 type ImageSlot = {
@@ -45,7 +51,7 @@ type ProductFormValues = {
 };
 
 const ACCEPT_IMAGE_TYPES = "image/jpeg,image/png,image/webp,image/gif";
-const MAX_IMAGE_BYTES = 5 << 20;
+const MAX_IMAGE_BYTES = 1 << 20;
 const ACCEPT_VIDEO_TYPES = "video/mp4,video/webm,video/quicktime";
 const MAX_VIDEO_BYTES = 5 << 20;
 
@@ -212,7 +218,7 @@ function VariantImageUpload({
             return Upload.LIST_IGNORE;
           }
           if (file.size > MAX_IMAGE_BYTES) {
-            message.error("Image must be 5MB or smaller");
+            message.error("Image must be 1MB or smaller");
             return Upload.LIST_IGNORE;
           }
           const previewUrl = URL.createObjectURL(file);
@@ -302,10 +308,134 @@ function VariantImagesField({
         ))}
       </div>
       <p className="mt-2 text-xs text-neutral-500">
-        Each variant needs one photo. Images upload when you save — not when you
-        pick a file.
+        Each variant needs one photo. Maximum image size: 1MB (JPEG, PNG, WebP,
+        GIF). Images upload when you save — not when you pick a file.
       </p>
     </>
+  );
+}
+
+function EffectivePerPieceField({
+  label,
+  totalNgn,
+  pieceCount,
+}: {
+  label: string;
+  totalNgn?: number;
+  pieceCount: number;
+}) {
+  const perPieceKobo = effectivePiecePriceKobo(
+    ngnToKobo(totalNgn ?? 0),
+    pieceCount,
+  );
+  return (
+    <Form.Item label={label}>
+      <InputNumber
+        className="w-full!"
+        disabled
+        controls={false}
+        value={perPieceKobo != null ? koboToNgn(perPieceKobo) : undefined}
+        placeholder="—"
+      />
+      {perPieceKobo != null ? (
+        <p className="mt-1 text-xs text-neutral-500">
+          {formatKobo(perPieceKobo)} each when buying this unit
+        </p>
+      ) : (
+        <p className="mt-1 text-xs text-neutral-500">
+          Enter a price and piece count to see the per-piece rate.
+        </p>
+      )}
+    </Form.Item>
+  );
+}
+
+function SizePricingSection({
+  size,
+  form,
+}: {
+  size: string;
+  form: FormInstance<ProductFormValues>;
+}) {
+  const cfg = Form.useWatch(["sizeConfigs", size], form);
+  return (
+    <div className="mb-6 rounded-lg border border-neutral-200 bg-neutral-50/80 p-4 dark:border-neutral-700 dark:bg-neutral-900/40">
+      <p className="mb-3 text-sm font-semibold sm:text-base">
+        Pricing — {size}
+      </p>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Form.Item
+          name={["sizeConfigs", size, "piecePriceNgn"]}
+          label="Piece price (₦)"
+          rules={[{ required: true, message: "Required" }]}
+        >
+          <InputNumber min={0} step={100} className="w-full!" />
+        </Form.Item>
+        <Form.Item
+          name={["sizeConfigs", size, "bundlePriceNgn"]}
+          label="Bundle price (₦)"
+          rules={[{ required: true, message: "Required" }]}
+        >
+          <InputNumber min={0} step={100} className="w-full!" />
+        </Form.Item>
+        <Form.Item
+          name={["sizeConfigs", size, "piecesPerBundle"]}
+          label="Pieces per bundle"
+          rules={[
+            { required: true, message: "Required" },
+            { type: "number", min: 1, message: "At least 1" },
+          ]}
+        >
+          <InputNumber min={1} className="w-full!" />
+        </Form.Item>
+        <EffectivePerPieceField
+          label="Price per piece in bundle (₦)"
+          totalNgn={cfg?.bundlePriceNgn}
+          pieceCount={cfg?.piecesPerBundle ?? 0}
+        />
+      </div>
+    </div>
+  );
+}
+
+function CleaningPricingSection({
+  form,
+}: {
+  form: FormInstance<ProductFormValues>;
+}) {
+  const cleaningDozenNgn = Form.useWatch("cleaningDozenNgn", form);
+  return (
+    <div className="mb-6 rounded-lg border border-neutral-200 bg-neutral-50/80 p-4 dark:border-neutral-700 dark:bg-neutral-900/40">
+      <p className="mb-3 text-sm font-semibold sm:text-base">
+        Cleaning pricing
+      </p>
+      <p className="mb-3 text-xs text-neutral-500">
+        Dozen is always {DOZEN_PIECE_COUNT} pieces. Delivery timeline: 1–3
+        business days (Mon–Sat). Storefront fee: ₦2,000 for piece-only orders;
+        free when the cart includes a dozen (or a mat/rug bundle).
+      </p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Form.Item
+          name="cleaningPieceNgn"
+          label="Piece price (₦)"
+          rules={[{ required: true, message: "Required" }]}
+        >
+          <InputNumber min={0} step={100} className="w-full!" />
+        </Form.Item>
+        <Form.Item
+          name="cleaningDozenNgn"
+          label="Dozen price (₦)"
+          rules={[{ required: true, message: "Required" }]}
+        >
+          <InputNumber min={0} step={100} className="w-full!" />
+        </Form.Item>
+        <EffectivePerPieceField
+          label="Price per piece in dozen (₦)"
+          totalNgn={cleaningDozenNgn}
+          pieceCount={DOZEN_PIECE_COUNT}
+        />
+      </div>
+    </div>
   );
 }
 
@@ -594,31 +724,7 @@ export function ProductForm({
       </Form.Item>
 
       {cleaning ? (
-        <div className="mb-6 rounded-lg border border-neutral-200 bg-neutral-50/80 p-4 dark:border-neutral-700 dark:bg-neutral-900/40">
-          <p className="mb-3 text-sm font-semibold sm:text-base">
-            Cleaning pricing
-          </p>
-          <p className="mb-3 text-xs text-neutral-500">
-            Dozen is always 12 pieces. Delivery is fixed at 1–3 business days
-            (Mon–Sat).
-          </p>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Form.Item
-              name="cleaningPieceNgn"
-              label="Piece price (₦)"
-              rules={[{ required: true, message: "Required" }]}
-            >
-              <InputNumber min={0} step={100} className="w-full!" />
-            </Form.Item>
-            <Form.Item
-              name="cleaningDozenNgn"
-              label="Dozen price (₦)"
-              rules={[{ required: true, message: "Required" }]}
-            >
-              <InputNumber min={0} step={100} className="w-full!" />
-            </Form.Item>
-          </div>
-        </div>
+        <CleaningPricingSection form={form} />
       ) : (
         <>
           <Form.Item
@@ -635,43 +741,12 @@ export function ProductForm({
           </Form.Item>
 
           {selectedSizes.map((size: string) => (
-            <div
-              key={size}
-              className="mb-6 rounded-lg border border-neutral-200 bg-neutral-50/80 p-4 dark:border-neutral-700 dark:bg-neutral-900/40"
-            >
-              <p className="mb-3 text-sm font-semibold sm:text-base">
-                Pricing — {size}
-              </p>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                <Form.Item
-                  name={["sizeConfigs", size, "piecePriceNgn"]}
-                  label="Piece price (₦)"
-                  rules={[{ required: true, message: "Required" }]}
-                >
-                  <InputNumber min={0} step={100} className="w-full!" />
-                </Form.Item>
-                <Form.Item
-                  name={["sizeConfigs", size, "bundlePriceNgn"]}
-                  label="Bundle price (₦)"
-                  rules={[{ required: true, message: "Required" }]}
-                >
-                  <InputNumber min={0} step={100} className="w-full!" />
-                </Form.Item>
-                <Form.Item
-                  name={["sizeConfigs", size, "piecesPerBundle"]}
-                  label="Pieces per bundle"
-                  rules={[
-                    { required: true, message: "Required" },
-                    { type: "number", min: 1, message: "At least 1" },
-                  ]}
-                >
-                  <InputNumber min={1} className="w-full!" />
-                </Form.Item>
-              </div>
-            </div>
+            <SizePricingSection key={size} size={size} form={form} />
           ))}
           <p className="mb-4 text-xs text-neutral-500">
-            Delivery is fixed at 1–3 business days (Mon–Sat) for all products.
+            Delivery timeline: 1–3 business days (Mon–Sat). Storefront fee:
+            ₦2,000 for piece-only orders; free when the cart includes a bundle
+            or dozen.
           </p>
         </>
       )}

@@ -20,6 +20,9 @@ export const PRODUCT_CATEGORIES: { value: CategoryValue; label: string }[] = [
 
 export const CLEANING_CATEGORY: CategoryValue = "cleaning_essentials";
 
+/** Dozen always means 12 pieces for cleaning essentials. */
+export const DOZEN_PIECE_COUNT = 12;
+
 export function isCleaningCategory(category: string | undefined): boolean {
   return category === CLEANING_CATEGORY;
 }

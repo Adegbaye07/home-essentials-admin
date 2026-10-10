@@ -4,8 +4,9 @@ import { useRef } from "react";
 import { Image, Table, Tag } from "antd";
 import type { ColumnsType } from "antd/es/table";
 
-import { isCleaningCategory } from "@/lib/constants";
+import { DOZEN_PIECE_COUNT, isCleaningCategory } from "@/lib/constants";
 import { formatKobo } from "@/lib/format";
+import { effectivePiecePriceKobo } from "@/lib/pricing";
 import { productPrimaryMedia } from "@/lib/product-display";
 import type { Product, SizePricing } from "@/lib/types";
 
@@ -30,11 +31,26 @@ const sizePricingColumns: ColumnsType<SizePricing> = [
     width: 100,
     render: (n: number) => `${n} pcs`,
   },
+  {
+    title: "Per pc (bundle)",
+    key: "perPcBundle",
+    width: 120,
+    render: (_, row) => {
+      const per = effectivePiecePriceKobo(row.bundlePriceKobo, row.piecesPerBundle);
+      return per != null ? formatKobo(per) : "—";
+    },
+  },
 ];
 
 export function ProductCatalogueExpandedRow({ product }: { product: Product }) {
   const cleaning = isCleaningCategory(product.category);
   const videoUrl = product.videoUrl?.trim();
+  const dozenPerPieceKobo = product.cleaningPricing
+    ? effectivePiecePriceKobo(
+        product.cleaningPricing.dozenPriceKobo,
+        DOZEN_PIECE_COUNT,
+      )
+    : null;
 
   return (
     <div className="grid gap-6 py-2 lg:grid-cols-2">
@@ -48,9 +64,17 @@ export function ProductCatalogueExpandedRow({ product }: { product: Product }) {
                 {formatKobo(product.cleaningPricing.piecePriceKobo)}
               </p>
               <p className="mt-1">
-                <span className="text-neutral-500">Dozen (12): </span>
+                <span className="text-neutral-500">
+                  Dozen ({DOZEN_PIECE_COUNT}):{" "}
+                </span>
                 {formatKobo(product.cleaningPricing.dozenPriceKobo)}
               </p>
+              {dozenPerPieceKobo != null ? (
+                <p className="mt-1">
+                  <span className="text-neutral-500">Per pc (dozen): </span>
+                  {formatKobo(dozenPerPieceKobo)}
+                </p>
+              ) : null}
             </div>
           ) : (
             <p className="text-sm text-neutral-500">No cleaning pricing.</p>
@@ -68,7 +92,8 @@ export function ProductCatalogueExpandedRow({ product }: { product: Product }) {
           <p className="text-sm text-neutral-500">No sizes configured.</p>
         )}
         <p className="mt-3 text-xs text-neutral-500">
-          Delivery: 1–3 business days (Mon–Sat)
+          Delivery: 1–3 business days (Mon–Sat). Fee ₦2,000 on piece-only
+          orders; free with any bundle or dozen.
         </p>
       </section>
       <section>
