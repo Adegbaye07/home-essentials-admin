@@ -4,6 +4,7 @@ const CATEGORY_BY_VALUE = {
   foot_mats: "Foot mats",
   door_mats: "Door mats",
   center_mats: "Center mats",
+  bath_mats: "Bath mats",
   rugs: "Rugs",
   cleaning_essentials: "Cleaning essentials",
 } as const;
@@ -14,6 +15,7 @@ export const PRODUCT_CATEGORIES: { value: CategoryValue; label: string }[] = [
   { value: "foot_mats", label: CATEGORY_BY_VALUE.foot_mats },
   { value: "door_mats", label: CATEGORY_BY_VALUE.door_mats },
   { value: "center_mats", label: CATEGORY_BY_VALUE.center_mats },
+  { value: "bath_mats", label: CATEGORY_BY_VALUE.bath_mats },
   { value: "rugs", label: CATEGORY_BY_VALUE.rugs },
   { value: "cleaning_essentials", label: CATEGORY_BY_VALUE.cleaning_essentials },
 ];
