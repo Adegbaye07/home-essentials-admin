@@ -1,6 +1,7 @@
-import type { OrderStatus } from "./types";
+import type { OrderStatus, OrderType } from "./types";
 
 const CATEGORY_BY_VALUE = {
+  general_mats: "General mats",
   foot_mats: "Foot mats",
   door_mats: "Door mats",
   center_mats: "Center mats",
@@ -12,6 +13,7 @@ const CATEGORY_BY_VALUE = {
 export type CategoryValue = keyof typeof CATEGORY_BY_VALUE;
 
 export const PRODUCT_CATEGORIES: { value: CategoryValue; label: string }[] = [
+  { value: "general_mats", label: CATEGORY_BY_VALUE.general_mats },
   { value: "foot_mats", label: CATEGORY_BY_VALUE.foot_mats },
   { value: "door_mats", label: CATEGORY_BY_VALUE.door_mats },
   { value: "center_mats", label: CATEGORY_BY_VALUE.center_mats },
@@ -49,20 +51,38 @@ export function categorySelectOptions(current?: string): { value: string; label:
 
 /** All statuses for list filters and labels. */
 export const ORDER_STATUSES: { value: OrderStatus; label: string }[] = [
+  { value: "created", label: "Created" },
   { value: "pending_payment", label: "Pending payment" },
   { value: "abandoned", label: "Abandoned" },
+  { value: "rejected", label: "Rejected" },
   { value: "paid", label: "Paid" },
   { value: "packing", label: "Packing" },
   { value: "in_transit", label: "In transit" },
   { value: "delivered", label: "Delivered" },
 ];
 
+export const ORDER_TYPES: { value: OrderType; label: string }[] = [
+  { value: "shop", label: "Shop" },
+  { value: "custom", label: "Custom mat" },
+];
+
+export function normalizeOrderType(type: string | undefined): OrderType {
+  return type === "custom" ? "custom" : "shop";
+}
+
+export function orderTypeLabel(type: string | undefined): string {
+  const normalized = normalizeOrderType(type);
+  return ORDER_TYPES.find((t) => t.value === normalized)?.label ?? normalized;
+}
+
+export function orderTypeColor(type: string | undefined): string {
+  return normalizeOrderType(type) === "custom" ? "purple" : "default";
+}
+
 const LEGACY_STATUS_LABELS: Record<string, string> = {
   processing: "Packing",
   shipped: "In transit",
   cancelled: "Cancelled",
-  created: "Created",
-  rejected: "Rejected",
 };
 
 export function normalizeOrderStatus(status: OrderStatus | string): OrderStatus {

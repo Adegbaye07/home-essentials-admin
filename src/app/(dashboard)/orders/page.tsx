@@ -7,15 +7,29 @@ import type { ColumnsType } from "antd/es/table";
 
 import { AdminShell } from "@/components/admin-shell";
 import { OrderItemImage } from "@/components/order-item-image";
-import { ORDER_STATUSES, orderStatusColor, orderStatusLabel } from "@/lib/constants";
+import {
+  ORDER_STATUSES,
+  ORDER_TYPES,
+  normalizeOrderType,
+  orderStatusColor,
+  orderStatusLabel,
+  orderTypeColor,
+  orderTypeLabel,
+} from "@/lib/constants";
 import { listOrders } from "@/lib/api";
 import { confirmDeleteAbandonedOrder } from "@/lib/confirm-delete-abandoned-order";
-import type { Order, OrderStatus } from "@/lib/types";
+import type { Order, OrderStatus, OrderType } from "@/lib/types";
 import { formatDateTime, formatKobo } from "@/lib/format";
 import { useAppMessage } from "@/hooks/use-app-message";
 import { useIsMdUp } from "@/hooks/use-media-query";
 
 function orderListImage(order: Order): { src?: string; alt: string } {
+  if (normalizeOrderType(order.orderType) === "custom" && order.custom) {
+    return {
+      src: order.custom.sampleImageUrl,
+      alt: order.custom.title || "Custom mat sample",
+    };
+  }
   const first = order.items[0];
   if (!first) return { alt: "Order item" };
   return {
@@ -30,6 +44,7 @@ export default function OrdersPage() {
   const [items, setItems] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<OrderStatus | undefined>();
+  const [typeFilter, setTypeFilter] = useState<OrderType | undefined>();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [total, setTotal] = useState(0);
@@ -39,6 +54,7 @@ export default function OrdersPage() {
     try {
       const data = await listOrders({
         status: statusFilter,
+        orderType: typeFilter,
         page,
         page_size: pageSize,
       });
@@ -53,11 +69,11 @@ export default function OrdersPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [statusFilter]);
+  }, [statusFilter, typeFilter]);
 
   useEffect(() => {
     void load();
-  }, [statusFilter, page, pageSize]);
+  }, [statusFilter, typeFilter, page, pageSize]);
 
   const columns: ColumnsType<Order> = [
     {
@@ -78,6 +94,17 @@ export default function OrdersPage() {
       render: (v: string) => formatDateTime(v),
     },
     {
+      title: "Type",
+      dataIndex: "orderType",
+      key: "orderType",
+      width: 100,
+      render: (t: string | undefined) => (
+        <Tag color={orderTypeColor(t)} className="m-0">
+          {orderTypeLabel(t)}
+        </Tag>
+      ),
+    },
+    {
       title: "Status",
       dataIndex: "status",
       key: "status",
@@ -94,7 +121,7 @@ export default function OrdersPage() {
       key: "total",
       width: 120,
       className: "whitespace-nowrap",
-      render: (k: number) => formatKobo(k),
+      render: (k: number) => (k > 0 ? formatKobo(k) : "—"),
     },
     {
       title: "Customer",
@@ -139,7 +166,7 @@ export default function OrdersPage() {
 
   return (
     <AdminShell contentWidth="wide" title="Orders">
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-center">
         <h1 className="col-span-full text-lg font-semibold sm:hidden">Orders</h1>
         <Select
           allowClear
@@ -149,7 +176,15 @@ export default function OrdersPage() {
           onChange={setStatusFilter}
           options={ORDER_STATUSES.map((s) => ({ value: s.value, label: s.label }))}
         />
-        <Button onClick={() => void load()} className="w-full sm:w-auto">
+        <Select
+          allowClear
+          placeholder="Type"
+          className="w-full"
+          value={typeFilter}
+          onChange={setTypeFilter}
+          options={ORDER_TYPES.map((t) => ({ value: t.value, label: t.label }))}
+        />
+        <Button onClick={() => void load()} className="w-full sm:w-auto lg:justify-self-end">
           Refresh
         </Button>
       </div>

@@ -79,6 +79,18 @@ export type OrderItem = {
   lineTotalKobo: number;
 };
 
+export type OrderType = "shop" | "custom";
+
+export type CustomRequest = {
+  title: string;
+  description?: string;
+  sizes?: string[];
+  colors?: string[];
+  quantity: number;
+  offeredTotalKobo?: number;
+  sampleImageUrl?: string;
+};
+
 export type CustomerInfo = {
   name?: string;
   email: string;
@@ -94,8 +106,9 @@ export type StatusHistoryEntry = {
 
 export type Order = {
   id: string;
-  orderType?: "shop" | "custom";
+  orderType?: OrderType;
   items: OrderItem[];
+  custom?: CustomRequest;
   customer: CustomerInfo;
   status: OrderStatus;
   statusHistory: StatusHistoryEntry[];
