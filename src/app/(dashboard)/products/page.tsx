@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Button, Modal, Select, Space, Table, Tag } from "antd";
+import { Button, Input, Modal, Select, Space, Table, Tag } from "antd";
+import { SearchOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
 
 import { AdminShell, AdminNewProductButton } from "@/components/admin-shell";
@@ -20,6 +21,8 @@ import { productPriceRangeKobo } from "@/lib/product-display";
 import { useAppMessage } from "@/hooks/use-app-message";
 import { useIsMdUp } from "@/hooks/use-media-query";
 
+const SEARCH_DEBOUNCE_MS = 1000;
+
 function formatPriceRange(product: Product): string {
   const range = productPriceRangeKobo(product);
   if (!range) return "—";
@@ -34,9 +37,20 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [category, setCategory] = useState<string | undefined>();
   const [activeFilter, setActiveFilter] = useState<boolean | undefined>();
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [total, setTotal] = useState(0);
+
+  const searchQuery = debouncedSearch.trim();
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(searchInput);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
   async function load() {
     setLoading(true);
@@ -44,6 +58,7 @@ export default function ProductsPage() {
       const data = await listProducts({
         category,
         active: activeFilter,
+        q: searchQuery || undefined,
         page,
         page_size: pageSize,
       });
@@ -58,11 +73,12 @@ export default function ProductsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [category, activeFilter]);
+  }, [category, activeFilter, searchQuery]);
 
   useEffect(() => {
     void load();
-  }, [category, activeFilter, page, pageSize]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load when filters/page change
+  }, [category, activeFilter, searchQuery, page, pageSize]);
 
   function confirmDelete(record: Product) {
     Modal.confirm({
@@ -179,7 +195,20 @@ export default function ProductsPage() {
       title="Catalogue"
       extra={<AdminNewProductButton />}
     >
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)_auto] lg:items-end">
+        <div className="sm:col-span-2 lg:col-span-1">
+          <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-400">
+            Search
+          </label>
+          <Input
+            allowClear
+            prefix={<SearchOutlined className="text-neutral-400" />}
+            placeholder="Search title or description…"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            aria-label="Search products"
+          />
+        </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-neutral-600 dark:text-neutral-400">
             Category
@@ -190,6 +219,8 @@ export default function ProductsPage() {
             showSearch
             optionFilterProp="label"
             onChange={(v) => {
+              setSearchInput("");
+              setDebouncedSearch("");
               if (v === "all") setCategory(undefined);
               else setCategory(v);
             }}
